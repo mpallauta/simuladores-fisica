@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Didáctico de Vernier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        poppins: ['Poppins', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Fondo general más oscuro (anti-fatiga visual) */
+        body { font-family: 'Poppins', sans-serif; background-color: #e2e8f0; }
+        
+        /* Estilos del deslizador */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #818cf8; 
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border: 2px solid #4f46e5; 
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        /* Contenedor del vernier dinámico CON scroll - Tonos mate */
+        .vernier-container {
+            width: 100%;
+            height: 180px; 
+            background-color: #f1f5f9;
+            border-radius: 1rem;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.05);
+            overflow-x: auto; 
+            overflow-y: hidden;
+            position: relative;
+            border: 2px solid #cbd5e1;
+            scroll-behavior: smooth;
+        }
+
+        canvas { display: block; }
+
+        /* Pestañas */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .tab-btn { transition: all 0.3s ease; }
+        .tab-btn.active { background-color: #e0e7ff; color: #3730a3; font-weight: 600; }
+        
+        /* Resolución botones */
+        .res-btn { transition: all 0.2s ease; }
+        .res-btn.active { background-color: #4f46e5; color: white; border-color: #4f46e5; box-shadow: 0 4px 10px rgba(79,70,229,0.3); }
+    </style>
+</head>
+<body class="text-slate-700 min-h-screen flex flex-col items-center py-8 px-4">
+
+    <div class="w-full max-w-5xl flex flex-col min-h-[90vh]">
+        
+        <!-- Contenido Principal -->
+        <div class="flex-grow">
+            <!-- Título -->
+            <header class="text-center mb-6">
+                <h1 class="text-3xl font-bold text-slate-800 mb-2">Simulador Pie de Metro</h1>
+                <p class="text-slate-600">Aprende a medir con precisión usando el Vernier</p>
+            </header>
+
+            <!-- Navegación por pestañas (Fondo suavizado) -->
+            <nav class="flex gap-2 mb-6 bg-slate-100 p-2 rounded-xl shadow-sm justify-center flex-wrap">
+                <button class="tab-btn active px-6 py-2 rounded-lg text-slate-600 hover:bg-slate-200" data-target="teoria">📖 Modo Aprendizaje</button>
+                <button class="tab-btn px-6 py-2 rounded-lg text-slate-600 hover:bg-slate-200" data-target="simulador">🎯 Simulador Libre</button>
+                <button class="tab-btn px-6 py-2 rounded-lg text-slate-600 hover:bg-slate-200" data-target="practica">⚙️ Modo Práctica</button>
+            </nav>
+
+            <!-- Card principal (Fondo crema-grisáceo claro) -->
+            <main class="bg-slate-50 rounded-2xl shadow-xl p-6 md:p-8 border border-slate-200">
+                
+                <!-- Simulador Visual (Siempre visible) -->
+                <div class="mb-8">
+                    <div class="vernier-container" id="canvas-container">
+                        <canvas id="vernier-canvas"></canvas>
+                    </div>
+                    
+                    <div class="mt-6 flex flex-col md:flex-row gap-6 items-center">
+                        <div class="w-full md:w-2/3">
+                            <label class="block text-sm font-semibold text-slate-600 uppercase tracking-wider mb-3">Apertura del instrumento</label>
+                            <input type="range" id="main-slider" min="0" max="140" step="0.05" value="0">
+                        </div>
+                        <div class="w-full md:w-1/3">
+                            <label class="block text-sm font-semibold text-slate-600 uppercase tracking-wider mb-3 text-center">Resolución (r)</label>
+                            <div class="flex gap-2 justify-center">
+                                <button class="res-btn px-3 py-2 rounded-lg border-2 border-slate-300 bg-slate-100 text-slate-700 text-sm font-medium w-full" data-res="0.1">0.1 mm</button>
+                                <button class="res-btn active px-3 py-2 rounded-lg border-2 border-slate-300 bg-slate-100 text-slate-700 text-sm font-medium w-full" data-res="0.05">0.05 mm</button>
+                                <button class="res-btn px-3 py-2 rounded-lg border-2 border-slate-300 bg-slate-100 text-slate-700 text-sm font-medium w-full" data-res="0.02">0.02 mm</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="border-slate-300 mb-8">
+
+                <div id="teoria" class="tab-content active">
+                    <h2 class="text-xl font-bold text-indigo-800 mb-4 flex items-center gap-2">
+                        <span class="text-2xl">🎓</span> Procedimiento de medición con vernier
+                    </h2>
+
+                    <!-- PASO 0: CÁLCULO DE LA RESOLUCIÓN -->
+                    <div class="bg-slate-200/70 p-4 rounded-xl border border-slate-300 mb-6">
+                        <h3 class="font-bold text-slate-800 mb-1">Paso 0: Determinar la Resolución (r)</h3>
+                        <p class="text-sm text-slate-700 mb-2">Todo instrumento analógico requiere conocer su precisión antes de medir. Divida la menor marca de la escala principal (regla fija) por la cantidad total de marcas de la escala auxiliar (nonio móvil).</p>
+                        <p class="font-mono bg-slate-100 inline-block px-4 py-2 rounded text-slate-800 shadow-sm border border-slate-300 text-sm">
+                            r = <span class="text-slate-500 font-semibold">Menor división Regla</span> / <span class="text-slate-500 font-semibold">Divisiones Nonio</span> = 1 mm / <span id="th-calc-r-divs">20</span> = <strong class="text-indigo-600"><span id="th-calc-r-step0">0.05</span> mm</strong>
+                        </p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <p class="text-slate-600">La lectura se construye combinando la <strong>escala principal</strong> (arriba) y el <strong>nonio</strong> (abajo).</p>
+                            
+                            <div class="bg-blue-50/70 p-4 rounded-xl border border-blue-200">
+                                <h3 class="font-bold text-blue-800 mb-1">1. Lea la escala principal ( x<sub>principal</sub> )</h3>
+                                <p class="text-sm text-blue-900">Observe el cero del nonio (línea oscura que cruza hacia arriba). Registre la última marca de la escala principal que haya sido superada.</p>
+                                <p class="mt-2 font-mono bg-slate-100 inline-block px-3 py-1.5 rounded text-blue-800 shadow-sm border border-blue-200">x<sub>principal</sub> = <span id="th-main-val">0</span> mm</p>
+                            </div>
+
+                            <div class="bg-teal-50/70 p-4 rounded-xl border border-teal-200">
+                                <div class="flex flex-wrap justify-between items-center mb-1 gap-2">
+                                    <h3 class="font-bold text-teal-800">2. Lea el nonio ( x<sub>nonio</sub> )</h3>
+                                    <span class="bg-teal-200 text-teal-900 text-xs px-2 py-1 rounded font-bold shadow-sm">Resolución (r) = <span id="th-calc-r">0.05</span> mm</span>
+                                </div>
+                                <p class="text-sm text-teal-900 mb-2">Busque la línea del nonio que coincide perfectamente con una de arriba (resaltada en <strong class="text-red-600">rojo</strong>). Cuente el número de divisiones (N) desde el cero y multiplique por la resolución.</p>
+                                <div class="mt-2 font-mono bg-slate-100 inline-block px-3 py-1.5 rounded text-teal-800 shadow-sm border border-teal-200 text-sm leading-relaxed">
+                                    N = <span id="th-n-val">0</span> divisiones<br>
+                                    x<sub>nonio</sub> = N &middot; r = <span id="th-calc-n">0</span>(<span id="th-calc-r-val">0.05</span> mm) = <span id="th-nonio-val">0.00</span> mm
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="bg-indigo-50/70 p-5 rounded-xl border border-indigo-200 h-full flex flex-col justify-center">
+                                <h3 class="font-bold text-indigo-800 mb-2 text-center">3. Calcule la lectura total</h3>
+                                <p class="text-sm text-indigo-900 mb-4 text-center">Fórmula: <strong>x = x<sub>principal</sub> + x<sub>nonio</sub></strong></p>
+                                
+                                <div class="bg-slate-100 p-5 rounded-lg shadow-sm border border-indigo-200 font-mono text-center text-lg leading-relaxed">
+                                    x = x<sub>principal</sub> + x<sub>nonio</sub><br>
+                                    x = <span id="th-calc-main">0</span> mm + <span id="th-calc-nonio-sum">0.00</span> mm<br>
+                                    <span class="block mt-3 text-2xl font-bold text-indigo-700 border-t border-indigo-200 pt-3">x = <span id="th-total">0.00</span> mm</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 bg-orange-50/70 border-l-4 border-orange-400 p-4 rounded-r-lg">
+                        <h4 class="font-bold text-orange-800 flex items-center gap-2">⚠️ Error frecuente al leer el nonio</h4>
+                        <p class="text-sm text-orange-900 mt-1">No confunda el número impreso sobre una marca con el <strong>número de divisiones contadas</strong>. Si la escala rotula solo algunas marcas, cuente las divisiones <i>N</i> desde el cero del nonio hasta la coincidencia y multiplique ese número por la resolución <i>r</i>.</p>
+                    </div>
+                </div>
+
+                <div id="simulador" class="tab-content">
+                    <div class="text-center py-10">
+                        <h2 class="text-2xl font-bold text-slate-800 mb-2">Lectura Directa</h2>
+                        <p class="text-slate-600 mb-6">Mueve el deslizador superior para explorar diferentes medidas.</p>
+                        <div class="inline-block bg-slate-200 px-10 py-8 rounded-2xl border-2 border-slate-300 shadow-sm">
+                            <span class="text-sm uppercase font-bold text-slate-500 tracking-widest block mb-3">Medición Actual</span>
+                            <span class="text-6xl font-bold font-mono text-indigo-700" id="sim-display">0.00 mm</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="practica" class="tab-content">
+                    <div class="bg-slate-100 p-6 rounded-xl border border-slate-300">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-3xl">⚙️</span>
+                            <div>
+                                <h2 class="text-xl font-bold text-slate-800">Práctica de Taller</h2>
+                                <p class="text-sm text-slate-600">Estás midiendo el diámetro de un eje de motor en el laboratorio.</p>
+                            </div>
+                        </div>
+                        
+                        <p class="text-slate-700 mb-4">Ingresa la lectura correcta que marca el vernier. (La línea de coincidencia no está resaltada, ¡encuéntrala tú mismo!)</p>
+                        
+                        <div class="flex flex-wrap gap-4 items-center">
+                            <input type="number" id="practice-input" step="0.01" class="w-32 px-4 py-2 border-2 border-slate-400 bg-white rounded-lg focus:outline-none focus:border-indigo-500 font-mono text-lg" placeholder="0.00">
+                            <span class="text-slate-600 font-bold">mm</span>
+                            <button id="btn-check" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">Comprobar</button>
+                            <button id="btn-next" class="bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold py-2 px-4 rounded-lg transition-colors">Siguiente Pieza</button>
+                        </div>
+                        
+                        <div id="practice-feedback" class="mt-4 font-bold hidden px-4 py-3 rounded-lg"></div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+
+        <!-- Footer Oficial y Autoría -->
+        <footer class="w-full text-center py-6 text-slate-500 text-sm mt-auto">
+            <p>Simulador Didáctico Interactivo &copy; 2026</p>
+            <p class="font-medium">Diseño y desarrollo pedagógico por: Prof. M. Pallauta</p>
+        </footer>
+    </div>
+
+    <script>
+        class VernierApp {
+            constructor() {
+                this.canvas = document.getElementById('vernier-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.container = document.getElementById('canvas-container');
+                
+                // === NOMBRE PARA MARCA DE AGUA ===
+                this.authorName = "Matias Pallauta";
+                
+                this.mode = 'teoria';
+                this.resolution = 0.05;
+                this.currentValue = 0.00;
+                this.maxMm = 140; 
+                this.ppm = 15; 
+                this.padding = 30; 
+                this.practiceTarget = 0;
+
+                this.bindElements();
+                this.bindEvents();
+                
+                window.addEventListener('resize', () => this.resizeAndDraw());
+                this.resizeAndDraw();
+            }
+
+            bindElements() {
+                this.slider = document.getElementById('main-slider');
+                this.tabs = document.querySelectorAll('.tab-btn');
+                this.tabContents = document.querySelectorAll('.tab-content');
+                this.resBtns = document.querySelectorAll('.res-btn');
+                
+                // Displays de teoría (Incluyendo Paso 0)
+                this.thCalcRDivs = document.getElementById('th-calc-r-divs');
+                this.thCalcRStep0 = document.getElementById('th-calc-r-step0');
+                this.thMainVal = document.getElementById('th-main-val');
+                this.thNVal = document.getElementById('th-n-val');
+                this.thCalcMain = document.getElementById('th-calc-main');
+                this.thCalcN = document.getElementById('th-calc-n');
+                this.thCalcR = document.getElementById('th-calc-r');
+                this.thCalcRVal = document.getElementById('th-calc-r-val');
+                this.thNonioVal = document.getElementById('th-nonio-val');
+                this.thCalcNonioSum = document.getElementById('th-calc-nonio-sum');
+                this.thTotal = document.getElementById('th-total');
+                
+                this.simDisplay = document.getElementById('sim-display');
+                
+                this.practiceInput = document.getElementById('practice-input');
+                this.btnCheck = document.getElementById('btn-check');
+                this.btnNext = document.getElementById('btn-next');
+                this.practiceFeedback = document.getElementById('practice-feedback');
+            }
+
+            bindEvents() {
+                this.slider.addEventListener('input', (e) => {
+                    if (this.mode === 'practica') {
+                        e.preventDefault();
+                        this.slider.value = this.practiceTarget;
+                        return;
+                    }
+                    this.currentValue = parseFloat(e.target.value);
+                    this.updateDisplays();
+                    this.draw();
+                    this.scrollToNonius(); 
+                });
+
+                this.tabs.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        this.tabs.forEach(t => t.classList.remove('active'));
+                        this.tabContents.forEach(c => c.classList.remove('active'));
+                        
+                        btn.classList.add('active');
+                        this.mode = btn.dataset.target;
+                        document.getElementById(this.mode).classList.add('active');
+                        
+                        if (this.mode === 'practica') {
+                            this.slider.disabled = true;
+                            this.generatePractice();
+                        } else {
+                            this.slider.disabled = false;
+                            this.slider.value = this.currentValue;
+                            this.updateDisplays();
+                            this.draw();
+                            this.scrollToNonius();
+                        }
+                    });
+                });
+
+                this.resBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        if (this.mode === 'practica') return;
+                        
+                        this.resBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        this.resolution = parseFloat(btn.dataset.res);
+                        this.slider.step = this.resolution;
+                        
+                        this.currentValue = Math.round(this.currentValue / this.resolution) * this.resolution;
+                        this.slider.value = this.currentValue;
+                        
+                        this.updateDisplays();
+                        this.draw();
+                        this.scrollToNonius();
+                    });
+                });
+
+                this.btnCheck.addEventListener('click', () => this.checkPractice());
+                this.btnNext.addEventListener('click', () => this.generatePractice());
+            }
+
+            resizeAndDraw() {
+                this.ppm = 15; 
+                
+                const height = this.container.clientHeight;
+                const requiredWidth = (this.maxMm * this.ppm) + (this.padding * 2);
+                
+                this.canvas.style.width = requiredWidth + 'px';
+                this.canvas.style.height = height + 'px';
+                
+                this.canvas.width = requiredWidth * window.devicePixelRatio;
+                this.canvas.height = height * window.devicePixelRatio;
+                this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                
+                this.draw();
+                setTimeout(() => this.scrollToNonius(), 100);
+            }
+
+            scrollToNonius() {
+                const targetPx = this.padding + (this.currentValue * this.ppm);
+                const containerWidth = this.container.clientWidth;
+                this.container.scrollLeft = targetPx - (containerWidth / 2);
+            }
+
+            updateDisplays() {
+                const valEntero = Math.floor(this.currentValue);
+                const decimal = Math.round((this.currentValue - valEntero) * 100) / 100;
+                const matchN = Math.round(decimal / this.resolution);
+                const valNonio = (matchN * this.resolution).toFixed(2);
+                
+                // Calcular divisiones del nonio para el Paso 0
+                const numDivisions = Math.round(1 / this.resolution);
+                
+                // Actualizar Paso 0
+                if(this.thCalcRDivs) this.thCalcRDivs.textContent = numDivisions;
+                if(this.thCalcRStep0) this.thCalcRStep0.textContent = this.resolution;
+
+                // Actualizar Pasos 1, 2 y 3
+                this.thMainVal.textContent = valEntero;
+                this.thNVal.textContent = matchN;
+                this.thCalcMain.textContent = valEntero;
+                this.thCalcN.textContent = matchN;
+                this.thCalcR.textContent = this.resolution;
+                this.thCalcRVal.textContent = this.resolution;
+                this.thNonioVal.textContent = valNonio;
+                this.thCalcNonioSum.textContent = valNonio;
+                this.thTotal.textContent = this.currentValue.toFixed(2);
+                
+                this.simDisplay.textContent = this.currentValue.toFixed(2) + ' mm';
+            }
+
+            draw() {
+                const width = (this.maxMm * this.ppm) + (this.padding * 2);
+                const height = this.container.clientHeight;
+                const midY = height / 2;
+                
+                this.ctx.clearRect(0, 0, width, height);
+
+                // --- MARCA DE AGUA (AUTORÍA) ---
+                this.ctx.font = 'bold 24px Poppins';
+                this.ctx.fillStyle = 'rgba(100, 116, 139, 0.2)'; 
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                for (let i = 100; i < width; i += 400) {
+                    this.ctx.fillText(`Desarrollado por: ${this.authorName}`, i, height - 30);
+                }
+
+                // Pieza de práctica
+                if (this.mode === 'practica') {
+                    this.ctx.fillStyle = '#94a3b8'; 
+                    const blockWidth = this.currentValue * this.ppm;
+                    this.ctx.fillRect(this.padding, midY - 30, blockWidth, 60);
+                    
+                    this.ctx.strokeStyle = '#64748b'; 
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(this.padding, midY - 30, blockWidth, 60);
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(this.padding, midY);
+                    this.ctx.lineTo(this.padding + blockWidth, midY);
+                    this.ctx.setLineDash([5, 5]);
+                    this.ctx.stroke();
+                    this.ctx.setLineDash([]); 
+                }
+
+                this.drawMainScale(width, height, midY);
+                this.drawNoniusScale(width, height, midY);
+            }
+
+            drawMainScale(width, height, midY) {
+                const ctx = this.ctx;
+                
+                ctx.fillStyle = '#cbd5e1'; 
+                ctx.fillRect(0, 0, width, midY);
+                
+                ctx.strokeStyle = '#334155';
+                ctx.fillStyle = '#334155';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.font = '14px Poppins'; 
+                ctx.lineWidth = 1;
+
+                ctx.beginPath();
+                ctx.moveTo(0, midY);
+                ctx.lineTo(width, midY);
+                ctx.stroke();
+
+                for (let i = 0; i <= this.maxMm; i++) {
+                    const x = this.padding + (i * this.ppm);
+                    
+                    if (x > width) break;
+
+                    let markHeight = 12;
+                    if (i % 10 === 0) markHeight = 28;
+                    else if (i % 5 === 0) markHeight = 20;
+
+                    ctx.beginPath();
+                    ctx.moveTo(x, midY);
+                    ctx.lineTo(x, midY - markHeight); 
+                    ctx.stroke();
+
+                    if (i % 10 === 0) {
+                        ctx.fillText(i / 10, x, midY - markHeight - 5);
+                    }
+                }
+            }
+
+            drawNoniusScale(width, height, midY) {
+                const ctx = this.ctx;
+                
+                let divisions, noniusLengthMm;
+                if (this.resolution === 0.05) {
+                    divisions = 20;
+                    noniusLengthMm = 19;
+                } else if (this.resolution === 0.02) {
+                    divisions = 50;
+                    noniusLengthMm = 49;
+                } else { 
+                    divisions = 10;
+                    noniusLengthMm = 9;
+                }
+                
+                const noniusPpm = (noniusLengthMm * this.ppm) / divisions;
+                const zeroX = this.padding + (this.currentValue * this.ppm);
+
+                ctx.fillStyle = '#e2e8f0'; 
+                const noniusWidth = (divisions * noniusPpm) + 40;
+                ctx.fillRect(zeroX - 20, midY, noniusWidth, height - midY);
+
+                ctx.beginPath();
+                ctx.moveTo(zeroX - 20, midY);
+                ctx.lineTo(zeroX - 20 + noniusWidth, midY);
+                ctx.strokeStyle = '#94a3b8'; 
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.font = '14px Poppins'; 
+
+                const decimalPart = Math.round((this.currentValue - Math.floor(this.currentValue)) * 100) / 100;
+                const matchIndex = Math.round(decimalPart / this.resolution);
+
+                for (let i = 0; i <= divisions; i++) {
+                    const x = zeroX + (i * noniusPpm);
+                    
+                    let markHeight = 12;
+                    if (divisions === 10) {
+                        markHeight = (i % 5 === 0) ? 28 : 12;
+                    } else if (divisions === 20) {
+                        markHeight = (i % 10 === 0) ? 28 : (i % 5 === 0) ? 20 : 12;
+                    } else if (divisions === 50) {
+                        markHeight = (i % 10 === 0) ? 28 : (i % 5 === 0) ? 20 : 12;
+                    }
+
+                    const isMatch = (i === matchIndex && this.mode !== 'practica');
+
+                    ctx.beginPath();
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, 0); 
+                        ctx.lineTo(x, isMatch ? midY + markHeight + 8 : midY + markHeight); 
+                        ctx.lineWidth = isMatch ? 3.5 : 1.5;
+                        ctx.strokeStyle = isMatch ? '#dc2626' : '#334155'; 
+                    } else {
+                        if (isMatch) {
+                            ctx.moveTo(x, midY - 25); 
+                            ctx.lineTo(x, midY + markHeight + 8); 
+                            ctx.lineWidth = 3.5; 
+                            ctx.strokeStyle = '#dc2626'; 
+                        } else {
+                            ctx.moveTo(x, midY);
+                            ctx.lineTo(x, midY + markHeight); 
+                            ctx.lineWidth = 1;
+                            ctx.strokeStyle = '#475569'; 
+                        }
+                    }
+                    
+                    ctx.stroke();
+
+                    let shouldDrawNumber = false;
+                    let numberValue = i;
+
+                    if (divisions === 10 && i % 5 === 0) {
+                        shouldDrawNumber = true;
+                        numberValue = i; 
+                    } else if (divisions === 20 && i % 10 === 0) {
+                        shouldDrawNumber = true;
+                        numberValue = i / 2; 
+                    } else if (divisions === 50 && i % 10 === 0) {
+                        shouldDrawNumber = true;
+                        numberValue = i / 5; 
+                    }
+
+                    if (shouldDrawNumber) {
+                        ctx.fillStyle = isMatch ? '#dc2626' : '#334155';
+                        ctx.fillText(numberValue, x, midY + markHeight + 5);
+                    }
+                }
+            }
+
+            generatePractice() {
+                const minStep = Math.ceil(5 / this.resolution);
+                const maxStep = Math.floor(130 / this.resolution);
+                
+                const randomStep = Math.floor(Math.random() * (maxStep - minStep + 1)) + minStep;
+                this.practiceTarget = randomStep * this.resolution;
+                
+                this.practiceTarget = Math.round(this.practiceTarget * 100) / 100;
+                
+                this.currentValue = this.practiceTarget;
+                this.slider.value = this.practiceTarget;
+                
+                this.practiceInput.value = '';
+                this.practiceInput.classList.remove('border-green-500', 'border-red-500');
+                this.practiceFeedback.classList.add('hidden');
+                
+                this.draw();
+                setTimeout(() => this.scrollToNonius(), 50); 
+            }
+
+            checkPractice() {
+                const userVal = parseFloat(this.practiceInput.value);
+                
+                if (isNaN(userVal)) {
+                    this.showFeedback('Ingresa un número válido.', 'error');
+                    return;
+                }
+
+                if (Math.abs(userVal - this.practiceTarget) < 0.001) {
+                    this.showFeedback('¡Correcto! Excelente lectura.', 'success');
+                } else {
+                    this.showFeedback(`Incorrecto. Recuerda revisar la línea del nonio que coincide. (Resolución: ${this.resolution} mm)`, 'error');
+                }
+            }
+
+            showFeedback(msg, type) {
+                this.practiceFeedback.textContent = msg;
+                this.practiceFeedback.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+                this.practiceInput.classList.remove('border-green-500', 'border-red-500');
+                
+                if (type === 'success') {
+                    this.practiceFeedback.classList.add('bg-green-100', 'text-green-800');
+                    this.practiceInput.classList.add('border-green-500');
+                } else {
+                    this.practiceFeedback.classList.add('bg-red-100', 'text-red-800');
+                    this.practiceInput.classList.add('border-red-500');
+                }
+            }
+        }
+
+        window.onload = () => {
+            new VernierApp();
+        };
+    </script>
+</body>
+</html>
