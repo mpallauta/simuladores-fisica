@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Micrómetro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        poppins: ['Poppins', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1', 
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                        },
+                        highlight: '#ea580c', 
+                        metal: {
+                            light: '#f8fafc',
+                            base: '#f1f5f9',
+                            dark: '#64748b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Modo Eye-Care: Fondo más oscuro y relajante */
+        body { font-family: 'Poppins', sans-serif; background-color: #e2e8f0; }
+        
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #6366f1; 
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            border: 2px solid #4338ca;
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        /* Contenedor oscurecido y mate - ALTURA AUMENTADA 30% PARA EL TAMBOR GIGANTE */
+        .micrometer-container {
+            width: 100%;
+            height: 240px; 
+            background-color: #f1f5f9;
+            border-radius: 1rem;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.05);
+            overflow-x: auto; 
+            overflow-y: hidden;
+            position: relative;
+            border: 2px solid #cbd5e1;
+            scroll-behavior: smooth;
+        }
+
+        canvas { display: block; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .tab-btn { transition: all 0.3s ease; }
+        .tab-btn.active { background-color: #e0e7ff; color: #4338ca; font-weight: 600; }
+    </style>
+</head>
+<body class="text-slate-700 min-h-screen flex flex-col items-center py-8 px-4">
+
+    <div class="w-full max-w-5xl flex flex-col min-h-[90vh]">
+        <!-- Título -->
+        <header class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-slate-800 mb-2">Simulador de Micrómetro</h1>
+            <p class="text-slate-500">Aprende a medir con precisión usando el tornillo micrométrico métrico</p>
+        </header>
+
+        <!-- Navegación por pestañas -->
+        <nav class="flex gap-2 mb-6 bg-slate-100 p-2 rounded-xl shadow-sm justify-center flex-wrap">
+            <button class="tab-btn active px-6 py-2 rounded-lg text-slate-600 hover:bg-slate-200" data-target="teoria">📖 Modo Aprendizaje</button>
+            <button class="tab-btn px-6 py-2 rounded-lg text-slate-600 hover:bg-slate-200" data-target="simulador">🎯 Simulador Libre</button>
+            <button class="tab-btn px-6 py-2 rounded-lg text-slate-600 hover:bg-slate-200" data-target="practica">⚙️ Modo Práctica</button>
+        </nav>
+
+        <!-- Contenedor Principal -->
+        <main class="bg-slate-50 rounded-2xl shadow-xl p-6 md:p-8 border border-slate-200 flex-grow">
+            
+            <!-- Simulador Visual (Siempre visible) -->
+            <div class="mb-8">
+                <div class="micrometer-container" id="canvas-container">
+                    <canvas id="micrometer-canvas"></canvas>
+                </div>
+                
+                <div class="mt-6 flex flex-col items-center">
+                    <div class="w-full md:w-3/4">
+                        <label class="block text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3 text-center">Apertura del tambor (Giro Continuo)</label>
+                        <!-- Step de 0.001 para permitir barrido continuo ultra realista -->
+                        <input type="range" id="main-slider" min="0" max="25" step="0.001" value="0">
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-slate-300 mb-8">
+
+            <div id="teoria" class="tab-content active">
+                <h2 class="text-xl font-bold text-brand-700 mb-4 flex items-center gap-2">
+                    <span class="text-2xl">🎓</span> Procedimiento de medición con micrómetro
+                </h2>
+
+                <!-- PASO 0: CÁLCULO DE LA RESOLUCIÓN -->
+                <div class="bg-slate-200/70 p-4 rounded-xl border border-slate-300 mb-6">
+                    <h3 class="font-bold text-slate-800 mb-1">Paso 0: Determinar la Resolución (r)</h3>
+                    <p class="text-sm text-slate-700 mb-2">Todo instrumento analógico requiere conocer su precisión antes de medir. Para el micrómetro, divida el avance lineal de una vuelta completa (paso de rosca) entre el número total de marcas impresas en el tambor giratorio.</p>
+                    <p class="font-mono bg-slate-100 inline-block px-4 py-2 rounded text-slate-800 shadow-sm border border-slate-300 text-sm">
+                        r = <span class="text-slate-500 font-semibold">Paso de Rosca (Caña)</span> / <span class="text-slate-500 font-semibold">Divisiones Tambor</span> = 0.5 mm / 50 = <strong class="text-brand-600">0.01 mm</strong>
+                    </p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <p class="text-slate-600">Para un micrómetro métrico convencional, la lectura combina la <strong>escala principal (caña)</strong> y el <strong>tambor</strong>.</p>
+                        
+                        <div class="bg-teal-50/80 p-4 rounded-xl border border-teal-200">
+                            <h3 class="font-bold text-teal-800 mb-1">1. Lea la escala principal o caña ( x<sub>caña</sub> )</h3>
+                            <p class="text-sm text-teal-900">Registre la última marca visible antes del borde del tambor. Verifique si quedó visible la marca de medio milímetro (abajo).</p>
+                            <p class="mt-2 font-mono bg-white inline-block px-3 py-1.5 rounded text-teal-700 shadow-sm border border-teal-100">x<sub>caña</sub> = <span id="th-main-val">0.00</span> mm</p>
+                        </div>
+
+                        <!-- EXPLICACIÓN PASO 2: Línea Superada -->
+                        <div class="bg-sky-50/80 p-4 rounded-xl border border-sky-200">
+                            <h3 class="font-bold text-sky-800 mb-1">2. Lea el tambor ( x<sub>tambor</sub> )</h3>
+                            <p class="text-sm text-sky-900">Registre la cantidad de divisiones (N) que la línea de la caña haya <strong>superado</strong>. Como el tambor avanza de forma continua, tome el valor de la última marca que ya cruzó y quedó <strong>por debajo</strong> de la línea central.</p>
+                            <div class="mt-2 font-mono bg-white inline-block px-3 py-1.5 rounded text-sky-700 shadow-sm border border-sky-100 text-sm leading-relaxed">
+                                N = <span id="th-n-val">0</span> divisiones superadas<br>
+                                x<sub>tambor</sub> = N &middot; r = <span id="th-calc-n">0</span>(0.01 mm) = <span id="th-tambor-val">0.00</span> mm
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="bg-brand-50/80 p-5 rounded-xl border border-brand-200 h-full flex flex-col justify-center">
+                            <h3 class="font-bold text-brand-800 mb-2 text-center">3. Calcule la lectura total</h3>
+                            <p class="text-sm text-brand-900 mb-4 text-center">Fórmula: <strong>x = x<sub>caña</sub> + x<sub>tambor</sub></strong></p>
+                            
+                            <div class="bg-white p-5 rounded-lg shadow-sm border border-brand-100 font-mono text-center text-lg leading-relaxed">
+                                x = <span id="th-calc-main">0.00</span> mm + <span id="th-calc-tambor">0.00</span> mm<br>
+                                <span class="block mt-3 text-2xl font-bold text-brand-700 border-t border-brand-100 pt-3">x = <span id="th-total">0.00</span> mm</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="simulador" class="tab-content">
+                <div class="text-center py-10">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-2">Lectura Directa</h2>
+                    <p class="text-slate-500 mb-6">Mueve el deslizador superior de forma fluida para observar cómo gira el tambor y se calcula la medida analógica.</p>
+                    <div class="inline-block bg-slate-200 px-10 py-8 rounded-2xl border-2 border-slate-300 shadow-sm">
+                        <span class="text-sm uppercase font-bold text-slate-500 tracking-widest block mb-3">Medición Registrada</span>
+                        <span class="text-6xl font-bold font-mono text-brand-700" id="sim-display">0.00 mm</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="practica" class="tab-content">
+                <div class="bg-slate-100 p-6 rounded-xl border border-slate-300">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="text-3xl">⚙️</span>
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">Práctica de Taller</h2>
+                            <p class="text-sm text-slate-600">Estás midiendo el espesor de una lámina metálica calibrada.</p>
+                        </div>
+                    </div>
+                    
+                    <p class="mb-4 text-slate-700">Observa cuidadosamente la caña y el tambor e ingresa la lectura correcta. (Fíjate bien qué línea del tambor ha sido superada y quedó abajo).</p>
+                    
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <input type="number" id="practice-input" step="0.01" class="w-32 px-4 py-2 border-2 border-slate-400 bg-white rounded-lg focus:outline-none focus:border-brand-500 font-mono text-lg" placeholder="0.00">
+                        <span class="text-slate-600 font-bold">mm</span>
+                        <button id="btn-check" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">Comprobar</button>
+                        <button id="btn-next" class="bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold py-2 px-4 rounded-lg transition-colors">Nueva Pieza</button>
+                    </div>
+                    
+                    <div id="practice-feedback" class="mt-4 font-bold hidden px-4 py-3 rounded-lg"></div>
+                </div>
+            </div>
+
+        </main>
+        
+        <!-- Footer Oficial y Autoría -->
+        <footer class="w-full text-center py-6 text-slate-500 text-sm mt-auto">
+            <p>Simulador Didáctico Interactivo &copy; 2026</p>
+            <p class="font-medium">Diseño y desarrollo pedagógico por: Prof. M. Pallauta</p>
+        </footer>
+    </div>
+
+    <script>
+        class MicrometerApp {
+            constructor() {
+                this.canvas = document.getElementById('micrometer-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.container = document.getElementById('canvas-container');
+                
+                // === CONFIGURA AQUÍ TU NOMBRE ===
+                this.authorName = "Matias Pallauta";
+
+                this.mode = 'teoria';
+                this.currentValue = 0.000;
+                this.maxMm = 25; 
+                this.ppm = 40; 
+                this.padding = 60; 
+                this.practiceTarget = 0.000;
+
+                this.bindElements();
+                this.bindEvents();
+                
+                window.addEventListener('resize', () => this.resizeAndDraw());
+                this.resizeAndDraw();
+            }
+
+            bindElements() {
+                this.slider = document.getElementById('main-slider');
+                this.tabs = document.querySelectorAll('.tab-btn');
+                this.tabContents = document.querySelectorAll('.tab-content');
+                
+                this.thMainVal = document.getElementById('th-main-val');
+                this.thNVal = document.getElementById('th-n-val');
+                this.thCalcMain = document.getElementById('th-calc-main');
+                this.thCalcN = document.getElementById('th-calc-n');
+                this.thTamborVal = document.getElementById('th-tambor-val');
+                this.thCalcTambor = document.getElementById('th-calc-tambor');
+                this.thTotal = document.getElementById('th-total');
+                
+                this.simDisplay = document.getElementById('sim-display');
+                
+                this.practiceInput = document.getElementById('practice-input');
+                this.btnCheck = document.getElementById('btn-check');
+                this.btnNext = document.getElementById('btn-next');
+                this.practiceFeedback = document.getElementById('practice-feedback');
+            }
+
+            bindEvents() {
+                this.slider.addEventListener('input', (e) => {
+                    if (this.mode === 'practica') {
+                        e.preventDefault();
+                        this.slider.value = this.practiceTarget;
+                        return;
+                    }
+                    this.currentValue = parseFloat(e.target.value);
+                    this.updateDisplays();
+                    this.draw();
+                    this.scrollToTambor(); 
+                });
+
+                this.tabs.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        this.tabs.forEach(t => t.classList.remove('active'));
+                        this.tabContents.forEach(c => c.classList.remove('active'));
+                        
+                        btn.classList.add('active');
+                        this.mode = btn.dataset.target;
+                        document.getElementById(this.mode).classList.add('active');
+                        
+                        if (this.mode === 'practica') {
+                            this.slider.disabled = true;
+                            this.generatePractice();
+                        } else {
+                            this.slider.disabled = false;
+                            this.slider.value = this.currentValue;
+                            this.updateDisplays();
+                            this.draw();
+                            this.scrollToTambor();
+                        }
+                    });
+                });
+
+                this.btnCheck.addEventListener('click', () => this.checkPractice());
+                this.btnNext.addEventListener('click', () => this.generatePractice());
+            }
+
+            resizeAndDraw() {
+                const height = this.container.clientHeight;
+                const requiredWidth = (this.maxMm * this.ppm) + (this.padding * 2) + 200; 
+                
+                this.canvas.style.width = requiredWidth + 'px';
+                this.canvas.style.height = height + 'px';
+                
+                this.canvas.width = requiredWidth * window.devicePixelRatio;
+                this.canvas.height = height * window.devicePixelRatio;
+                this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                
+                this.draw();
+                setTimeout(() => this.scrollToTambor(), 100);
+            }
+
+            scrollToTambor() {
+                const targetPx = this.padding + (this.currentValue * this.ppm);
+                const containerWidth = this.container.clientWidth;
+                this.container.scrollLeft = targetPx - (containerWidth / 2) + 50; 
+            }
+
+            updateDisplays() {
+                const val = this.currentValue;
+                
+                const valCana = Math.floor(val / 0.5) * 0.5;
+                const decimalRestante = val - valCana;
+                
+                // Redondeo hacia abajo para obtener la "Línea Superada"
+                const exactDivisions = decimalRestante / 0.01;
+                const matchN = Math.floor(exactDivisions + 0.0001); 
+                
+                const valTambor = matchN * 0.01;
+                const lecturaFinal = valCana + valTambor;
+                
+                this.thMainVal.textContent = valCana.toFixed(2);
+                this.thNVal.textContent = matchN;
+                this.thCalcMain.textContent = valCana.toFixed(2);
+                this.thCalcN.textContent = matchN;
+                this.thTamborVal.textContent = valTambor.toFixed(2);
+                this.thCalcTambor.textContent = valTambor.toFixed(2);
+                this.thTotal.textContent = lecturaFinal.toFixed(2);
+                
+                // Muestra la LECTURA OFICIAL (floor)
+                this.simDisplay.textContent = lecturaFinal.toFixed(2) + ' mm';
+            }
+
+            draw() {
+                const width = this.canvas.width / window.devicePixelRatio;
+                const height = this.container.clientHeight;
+                const midY = height / 2;
+                
+                this.ctx.clearRect(0, 0, width, height);
+
+                // --- PIEZA DE PRÁCTICA OSCURECIDA ---
+                if (this.mode === 'practica' || this.currentValue > 0) {
+                    this.ctx.fillStyle = '#94a3b8'; // Slate 400
+                    const blockWidth = this.currentValue * this.ppm;
+                    this.ctx.fillRect(this.padding, midY - 20, blockWidth, 40);
+                    
+                    this.ctx.strokeStyle = '#64748b'; // Slate 500
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(this.padding, midY - 20, blockWidth, 40);
+                }
+
+                this.drawMainScale(width, height, midY);
+                this.drawThimble(width, height, midY);
+            }
+
+            drawMainScale(width, height, midY) {
+                const ctx = this.ctx;
+                
+                // --- FONDO CILÍNDRICO DE LA CAÑA ---
+                // AUMENTADO UN 30% en altura: de radio 25 a radio 32
+                ctx.fillStyle = '#cbd5e1'; // Slate 300
+                ctx.fillRect(this.padding - 20, midY - 32, width, 64);
+                
+                const gradCana = ctx.createLinearGradient(0, midY - 32, 0, midY + 32);
+                gradCana.addColorStop(0, 'rgba(0,0,0,0.15)');
+                gradCana.addColorStop(0.3, 'rgba(255,255,255,0.2)');
+                gradCana.addColorStop(1, 'rgba(0,0,0,0.15)');
+                ctx.fillStyle = gradCana;
+                ctx.fillRect(this.padding - 20, midY - 32, width, 64);
+
+                // --- MARCA DE AGUA INCRUSTADA ---
+                ctx.save();
+                ctx.globalAlpha = 0.15;
+                ctx.font = 'bold 20px Poppins';
+                ctx.fillStyle = '#0f172a';
+                ctx.textAlign = 'center';
+                for (let i = 150; i < width; i += 350) {
+                    ctx.fillText(`Desarrollado por: ${this.authorName}`, i, midY + 55);
+                }
+                ctx.restore();
+
+                ctx.strokeStyle = '#1e293b'; 
+                ctx.fillStyle = '#1e293b';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.font = '16px Poppins'; // Aumentado
+                ctx.lineWidth = 1.5;
+
+                // Línea de referencia central
+                ctx.beginPath();
+                ctx.moveTo(this.padding - 20, midY);
+                ctx.lineTo(this.padding + (this.maxMm * this.ppm), midY);
+                ctx.strokeStyle = '#475569'; 
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                for (let i = 0; i <= this.maxMm; i += 0.5) {
+                    const x = this.padding + (i * this.ppm);
+                    
+                    ctx.beginPath();
+                    if (Number.isInteger(i)) {
+                        ctx.moveTo(x, midY);
+                        ctx.lineTo(x, midY - 20); // Más largo
+                        
+                        if (i % 5 === 0) {
+                            ctx.fillText(i, x, midY - 24); // Más separado
+                        }
+                    } else {
+                        ctx.moveTo(x, midY);
+                        ctx.lineTo(x, midY + 16); // Más largo
+                    }
+                    ctx.strokeStyle = '#1e293b';
+                    ctx.stroke();
+                }
+
+                // Resalte Naranja de la línea de referencia
+                if (this.mode !== 'practica') {
+                    const startX = this.padding + (this.currentValue * this.ppm);
+                    ctx.beginPath();
+                    ctx.moveTo(this.padding, midY);
+                    ctx.lineTo(startX, midY);
+                    ctx.strokeStyle = '#ea580c'; 
+                    ctx.lineWidth = 2.5;
+                    ctx.stroke();
+
+                    // Punta de flecha un poco más grande
+                    ctx.beginPath();
+                    ctx.moveTo(startX, midY);
+                    ctx.lineTo(startX - 8, midY - 5);
+                    ctx.lineTo(startX - 8, midY + 5);
+                    ctx.fillStyle = '#ea580c';
+                    ctx.fill();
+                }
+            }
+
+            drawThimble(width, height, midY) {
+                const ctx = this.ctx;
+                const startX = this.padding + (this.currentValue * this.ppm);
+                const thimbleWidth = width - startX; 
+
+                // --- TAMBOR AUMENTADO UN 30% ---
+                // Radio cambia de 70 a 90 (Altura total de 140 a 180)
+                ctx.fillStyle = '#cbd5e1'; 
+                ctx.fillRect(startX, midY - 90, thimbleWidth, 180);
+                
+                ctx.beginPath();
+                ctx.moveTo(startX, midY - 90);
+                ctx.lineTo(startX, midY + 90);
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+
+                const gradient = ctx.createLinearGradient(0, midY - 90, 0, midY + 90);
+                gradient.addColorStop(0, 'rgba(0,0,0,0.2)');
+                gradient.addColorStop(0.2, 'rgba(255,255,255,0.4)');
+                gradient.addColorStop(0.8, 'rgba(255,255,255,0.1)');
+                gradient.addColorStop(1, 'rgba(0,0,0,0.25)');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(startX, midY - 90, thimbleWidth, 180);
+
+                /* CORRECCIÓN FÍSICA Y GRÁFICA DEL TAMBOR CONTINUO */
+                const decimalRestante = this.currentValue - (Math.floor(this.currentValue / 0.5) * 0.5);
+                const exactDivisions = decimalRestante / 0.01;
+                const matchN = Math.floor(exactDivisions + 0.0001); 
+                
+                // Espacio vertical aumentado un 30% (de 12 a 16 px)
+                const spacingY = 16; 
+
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                
+                // Dibujamos más marcas (de -8 a +8)
+                for (let offset = -8; offset <= 8; offset++) {
+                    // El offset 0 será nuestra marca superada
+                    let markNumUnwrapped = matchN + offset;
+                    
+                    // Al abrir el micrómetro, el cilindro gira bajando las marcas.
+                    const y = midY + (exactDivisions - markNumUnwrapped) * spacingY;
+                    
+                    // Aumentar los límites de dibujado por el nuevo tamaño del radio (de 65 a 85)
+                    if (y < midY - 85 || y > midY + 85) continue;
+
+                    let markNum = markNumUnwrapped % 50;
+                    if (markNum < 0) markNum += 50;
+
+                    const isMatch = (offset === 0 && this.mode !== 'practica');
+                    
+                    // Marcas más largas
+                    let markLength = 14; 
+                    let shouldDrawText = false;
+
+                    if (markNum % 5 === 0) {
+                        markLength = 30; // Marcas de números más largas (de 22 a 30)
+                        shouldDrawText = true;
+                    } else if (markNum % 1 !== 0) {
+                        continue;
+                    }
+
+                    ctx.beginPath();
+                    ctx.moveTo(startX, y);
+                    ctx.lineTo(startX + markLength, y);
+                    
+                    if (isMatch) {
+                        ctx.lineWidth = 3.5;
+                        ctx.strokeStyle = '#ea580c'; 
+                        ctx.lineTo(startX + markLength + 5, y); 
+                    } else {
+                        ctx.lineWidth = 1.5;
+                        ctx.strokeStyle = '#1e293b';
+                    }
+                    ctx.stroke();
+
+                    if (shouldDrawText) {
+                        ctx.fillStyle = isMatch ? '#ea580c' : '#1e293b';
+                        // Fuentes Aumentadas (14 a 16, y 16 a 20)
+                        ctx.font = isMatch ? 'bold 20px Poppins' : '16px Poppins';
+                        ctx.fillText(markNum, startX + markLength + (isMatch ? 10 : 6), y);
+                    }
+                }
+            }
+
+            generatePractice() {
+                const min = 2000; 
+                const max = 23000; 
+                
+                const randomInt = Math.floor(Math.random() * (max - min + 1)) + min;
+                this.practiceTarget = randomInt / 1000; 
+                
+                this.currentValue = this.practiceTarget;
+                this.slider.value = this.practiceTarget;
+                
+                this.practiceInput.value = '';
+                this.practiceInput.classList.remove('border-emerald-500', 'border-red-500');
+                this.practiceFeedback.classList.add('hidden');
+                
+                this.draw();
+                setTimeout(() => this.scrollToTambor(), 50); 
+            }
+
+            checkPractice() {
+                const userVal = parseFloat(this.practiceInput.value);
+                
+                if (isNaN(userVal)) {
+                    this.showFeedback('Ingresa un número válido.', 'error');
+                    return;
+                }
+
+                const valCana = Math.floor(this.practiceTarget / 0.5) * 0.5;
+                const decimalRestante = this.practiceTarget - valCana;
+                const matchN = Math.floor((decimalRestante / 0.01) + 0.0001);
+                const analogReading = valCana + (matchN * 0.01);
+
+                if (Math.abs(userVal - analogReading) < 0.005) {
+                    this.showFeedback('¡Correcto! Identificaste bien qué línea había sido superada.', 'success');
+                } else {
+                    this.showFeedback(`Incorrecto. Fíjate en la caña (¿pasó el 0.5?) y observa la última marca del tambor superada (la que quedó abajo).`, 'error');
+                }
+            }
+
+            showFeedback(msg, type) {
+                this.practiceFeedback.textContent = msg;
+                this.practiceFeedback.classList.remove('hidden', 'bg-emerald-100', 'text-emerald-800', 'bg-red-100', 'text-red-800');
+                this.practiceInput.classList.remove('border-emerald-500', 'border-red-500');
+                
+                if (type === 'success') {
+                    this.practiceFeedback.classList.add('bg-emerald-100', 'text-emerald-800');
+                    this.practiceInput.classList.add('border-emerald-500');
+                } else {
+                    this.practiceFeedback.classList.add('bg-red-100', 'text-red-800');
+                    this.practiceInput.classList.add('border-red-500');
+                }
+            }
+        }
+
+        window.onload = () => {
+            new MicrometerApp();
+        };
+    </script>
+</body>
+</html>
