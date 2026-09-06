@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Balanza Mecánica</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1', 
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        },
+                        teal: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                        },
+                        sky: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            600: '#0284c7',
+                        },
+                        highlight: '#ea580c', 
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Modo Eye-Care: Fondo más oscuro y relajante */
+        body { font-family: 'Inter', sans-serif; background-color: #e2e8f0; }
+        
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #4f46e5; 
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            border: 2px solid #c7d2fe;
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        /* Contenedor oscurecido mate para protección visual */
+        .canvas-container {
+            width: 100%;
+            height: 380px; 
+            background-color: #f1f5f9;
+            border-radius: 1rem;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            position: relative;
+            border: 2px solid #cbd5e1;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .tab-btn { transition: all 0.3s ease; }
+        .tab-btn.active { background-color: #e0e7ff; color: #4338ca; font-weight: 600; }
+    </style>
+</head>
+<body class="text-slate-700 min-h-screen flex flex-col items-center py-8 px-4">
+
+    <div class="w-full max-w-5xl flex flex-col min-h-[90vh]">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-slate-800 mb-2">Simulador Balanza Mecánica</h1>
+            <p class="text-slate-600">Aprende a registrar la masa con el sistema de brazos y nonio</p>
+        </header>
+
+        <!-- Botones con fondo oscurecido -->
+        <nav class="flex gap-2 mb-6 bg-slate-100 p-2 rounded-xl shadow-sm justify-center flex-wrap">
+            <button class="tab-btn active px-6 py-2 rounded-lg text-slate-600 hover:bg-slate-200" data-target="teoria">📖 Modo Aprendizaje</button>
+            <button class="tab-btn px-6 py-2 rounded-lg text-slate-600 hover:bg-slate-200" data-target="simulador">🎯 Simulador Libre</button>
+            <button class="tab-btn px-6 py-2 rounded-lg text-slate-600 hover:bg-slate-200" data-target="practica">⚙️ Modo Práctica</button>
+        </nav>
+
+        <!-- Tarjeta principal en tono slate-50 (no blanco puro) -->
+        <main class="bg-slate-50 rounded-2xl shadow-xl p-6 md:p-8 flex-grow border border-slate-200">
+            
+            <div class="mb-8">
+                <div class="canvas-container" id="canvas-container">
+                    <canvas id="balance-canvas"></canvas>
+                </div>
+                
+                <div id="controls-simulador" class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-slate-100 p-4 rounded-xl border border-slate-300">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Primer Brazo (100g)</label>
+                        <input type="range" id="slider-m1" min="0" max="500" step="100" value="0">
+                        <div class="text-right text-sm font-mono font-bold text-slate-700 mt-1"><span id="val-m1">0</span> g</div>
+                    </div>
+                    <div class="bg-slate-100 p-4 rounded-xl border border-slate-300">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Segundo Brazo (10g)</label>
+                        <input type="range" id="slider-m2" min="0" max="100" step="10" value="0">
+                        <div class="text-right text-sm font-mono font-bold text-slate-700 mt-1"><span id="val-m2">0</span> g</div>
+                    </div>
+                    <div class="bg-brand-50 p-4 rounded-xl border border-brand-200">
+                        <label class="block text-xs font-bold text-brand-600 uppercase tracking-wider mb-2">Escala Fina (Dial)</label>
+                        <input type="range" id="slider-mfina" min="0" max="10" step="0.01" value="0">
+                        <div class="text-right text-sm font-mono font-bold text-brand-700 mt-1"><span id="val-mfina">0.00</span> g</div>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-slate-300 mb-8">
+
+            <div id="teoria" class="tab-content active">
+                <h2 class="text-xl font-bold text-brand-700 mb-4 flex items-center gap-2">
+                    <span class="text-2xl">🎓</span> Procedimiento de medición
+                </h2>
+
+                <!-- PASO 0: CÁLCULO DE LA RESOLUCIÓN -->
+                <div class="bg-slate-200/70 p-4 rounded-xl border border-slate-300 mb-6">
+                    <h3 class="font-bold text-slate-800 mb-1">Paso 0: Determinar la Resolución (r)</h3>
+                    <p class="text-sm text-slate-700 mb-2">Todo instrumento analógico requiere conocer su precisión antes de medir. Para hallar la resolución de la escala fina, divida la menor marca de la escala principal (el dial giratorio) por la cantidad total de marcas de la escala auxiliar (el nonio fijo).</p>
+                    <p class="font-mono bg-slate-100 inline-block px-4 py-2 rounded text-slate-800 shadow-sm border border-slate-300 text-sm">
+                        r = <span class="text-slate-500 font-semibold">Menor división Dial</span> / <span class="text-slate-500 font-semibold">Divisiones Nonio</span> = 0.1 g / 10 = <strong class="text-brand-600">0.01 g</strong>
+                    </p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <p class="text-slate-600">No lea la balanza como si entregara un único número. Registre por separado la contribución de cada escala para evitar errores.</p>
+                        
+                        <div class="bg-teal-50/80 p-4 rounded-xl border border-teal-200">
+                            <h3 class="font-bold text-teal-800 mb-1">1. Escalas Mayores (Brazos)</h3>
+                            <p class="text-sm text-teal-900 mb-2">Sume la lectura del primer y segundo brazo donde encajan las pesas.</p>
+                            <p class="font-mono bg-slate-100 inline-block px-3 py-1.5 rounded text-teal-800 shadow-sm border border-teal-200 text-sm">
+                                m<sub>1</sub> = <span id="th-m1">0</span> g <br>
+                                m<sub>2</sub> = <span id="th-m2">0</span> g
+                            </p>
+                        </div>
+
+                        <div class="bg-sky-50/80 p-4 rounded-xl border border-sky-200">
+                            <div class="flex flex-wrap justify-between items-center mb-2 gap-2">
+                                <h3 class="font-bold text-sky-800">2. Escala Fina (Dial + Nonio)</h3>
+                                <span class="bg-sky-200 text-sky-900 text-xs px-2 py-1 rounded font-bold shadow-sm">r = 0.01 g</span>
+                            </div>
+                            <p class="text-sm text-sky-900 mb-2">
+                                <strong>a) Dial:</strong> Registre la marca del dial que acaba de pasar por el cero del nonio. (Ej: <span id="th-dial-val" class="font-bold">0.0</span> g).<br>
+                                <strong>b) Nonio:</strong> Busque la línea del nonio que coincide con el dial y multiplique por la resolución. (Línea <span id="th-nonio-val" class="font-bold">0</span> × 0.01 g).
+                            </p>
+                            <p class="font-mono bg-slate-100 inline-block px-3 py-1.5 rounded text-sky-800 shadow-sm border border-sky-200 text-sm">
+                                m<sub>fina</sub> = <span id="th-mfina-breakdown">0.0 g + 0.00 g</span> = <span id="th-mfina">0.00</span> g
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="bg-brand-50/80 p-5 rounded-xl border border-brand-200 h-full flex flex-col justify-center">
+                            <h3 class="font-bold text-brand-800 mb-2 text-center">3. Calcule la lectura total</h3>
+                            <p class="text-sm text-brand-900 mb-4 text-center">Fórmula: <strong>m = m<sub>1</sub> + m<sub>2</sub> + m<sub>fina</sub></strong></p>
+                            
+                            <div class="bg-slate-100 p-5 rounded-lg shadow-sm border border-brand-200 font-mono text-center text-lg">
+                                m = <span id="th-calc-m1">0</span> g + <span id="th-calc-m2">0</span> g + <span id="th-calc-mfina">0.00</span> g<br>
+                                <span class="block mt-3 text-2xl font-bold text-brand-700 border-t border-brand-200 pt-3">m = <span id="th-total">0.00</span> g</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="simulador" class="tab-content">
+                <div class="text-center py-10">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-2">Lectura Directa</h2>
+                    <p class="text-slate-600 mb-6">Mueve los tres deslizadores superiores para ajustar la balanza y descubrir cómo se combinan las escalas.</p>
+                    <div class="inline-block bg-slate-200 px-10 py-8 rounded-2xl border-2 border-slate-300 shadow-sm">
+                        <span class="text-sm uppercase font-bold text-slate-500 tracking-widest block mb-3">Masa Total Actual</span>
+                        <span class="text-6xl font-bold font-mono text-brand-700" id="sim-display">0.00 g</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="practica" class="tab-content">
+                <div class="bg-slate-100 p-6 rounded-xl border border-slate-300">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="text-3xl">⚙️</span>
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">Práctica de Laboratorio</h2>
+                            <p class="text-sm text-slate-600">Se ha colocado una muestra cilíndrica en el platillo y la balanza ha sido equilibrada automáticamente.</p>
+                        </div>
+                    </div>
+                    
+                    <p class="mb-4 text-slate-700">Suma las contribuciones de cada brazo y del dial con nonio. (La línea de coincidencia naranja ha sido ocultada para ponerte a prueba).</p>
+                    
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <input type="number" id="practice-input" step="0.01" class="w-32 px-4 py-2 border-2 border-slate-400 bg-white rounded-lg focus:outline-none focus:border-brand-500 font-mono text-lg" placeholder="0.00">
+                        <span class="text-slate-600 font-bold">g</span>
+                        <button id="btn-check" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">Comprobar</button>
+                        <button id="btn-next" class="bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold py-2 px-4 rounded-lg transition-colors">Nueva Muestra</button>
+                    </div>
+                    
+                    <div id="practice-feedback" class="mt-4 font-bold hidden px-4 py-3 rounded-lg"></div>
+                </div>
+            </div>
+
+        </main>
+        
+        <!-- Footer Oficial y Autoría -->
+        <footer class="w-full text-center py-6 text-slate-500 text-sm mt-auto">
+            <p>Simulador Didáctico Interactivo &copy; 2026</p>
+            <p class="font-medium">Diseño y desarrollo pedagógico elaborado por: Prof. M. Pallauta</p>
+        </footer>
+    </div>
+
+    <script>
+        class BalanceApp {
+            constructor() {
+                this.canvas = document.getElementById('balance-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.container = document.getElementById('canvas-container');
+                
+                // === CONFIGURA AQUÍ TU NOMBRE ===
+                this.authorName = "Matias Pallauta";
+
+                this.mode = 'teoria';
+                this.m1 = 0;       
+                this.m2 = 0;       
+                this.mFina = 0.00; 
+                this.totalMass = 0;
+                
+                this.practiceTarget = 0;
+
+                this.bindElements();
+                this.bindEvents();
+                
+                window.addEventListener('resize', () => this.resizeAndDraw());
+                this.resizeAndDraw();
+            }
+
+            bindElements() {
+                this.sliderM1 = document.getElementById('slider-m1');
+                this.sliderM2 = document.getElementById('slider-m2');
+                this.sliderMFina = document.getElementById('slider-mfina');
+                this.controlsSim = document.getElementById('controls-simulador');
+                
+                this.valM1 = document.getElementById('val-m1');
+                this.valM2 = document.getElementById('val-m2');
+                this.valMFina = document.getElementById('val-mfina');
+
+                this.tabs = document.querySelectorAll('.tab-btn');
+                this.tabContents = document.querySelectorAll('.tab-content');
+                
+                this.thM1 = document.getElementById('th-m1');
+                this.thM2 = document.getElementById('th-m2');
+                this.thMFina = document.getElementById('th-mfina');
+                this.thDialVal = document.getElementById('th-dial-val');
+                this.thNonioVal = document.getElementById('th-nonio-val');
+                this.thMFinaBreakdown = document.getElementById('th-mfina-breakdown');
+                this.thCalcM1 = document.getElementById('th-calc-m1');
+                this.thCalcM2 = document.getElementById('th-calc-m2');
+                this.thCalcMFina = document.getElementById('th-calc-mfina');
+                this.thTotal = document.getElementById('th-total');
+                
+                this.simDisplay = document.getElementById('sim-display');
+                
+                this.practiceInput = document.getElementById('practice-input');
+                this.btnCheck = document.getElementById('btn-check');
+                this.btnNext = document.getElementById('btn-next');
+                this.practiceFeedback = document.getElementById('practice-feedback');
+            }
+
+            bindEvents() {
+                const updateFromSliders = () => {
+                    this.m1 = parseInt(this.sliderM1.value);
+                    this.m2 = parseInt(this.sliderM2.value);
+                    this.mFina = parseFloat(this.sliderMFina.value);
+                    this.totalMass = this.m1 + this.m2 + this.mFina;
+                    this.updateDisplays();
+                    this.draw();
+                };
+
+                this.sliderM1.addEventListener('input', updateFromSliders);
+                this.sliderM2.addEventListener('input', updateFromSliders);
+                this.sliderMFina.addEventListener('input', updateFromSliders);
+
+                this.tabs.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        this.tabs.forEach(t => t.classList.remove('active'));
+                        this.tabContents.forEach(c => c.classList.remove('active'));
+                        
+                        btn.classList.add('active');
+                        this.mode = btn.dataset.target;
+                        document.getElementById(this.mode).classList.add('active');
+                        
+                        if (this.mode === 'practica') {
+                            this.controlsSim.style.display = 'none';
+                            this.generatePractice();
+                        } else {
+                            this.controlsSim.style.display = 'grid';
+                            this.m1 = parseInt(this.sliderM1.value);
+                            this.m2 = parseInt(this.sliderM2.value);
+                            this.mFina = parseFloat(this.sliderMFina.value);
+                            this.updateDisplays();
+                            this.draw();
+                        }
+                    });
+                });
+
+                this.btnCheck.addEventListener('click', () => this.checkPractice());
+                this.btnNext.addEventListener('click', () => this.generatePractice());
+            }
+
+            resizeAndDraw() {
+                const width = this.container.clientWidth;
+                const height = this.container.clientHeight;
+                
+                this.canvas.width = width * window.devicePixelRatio;
+                this.canvas.height = height * window.devicePixelRatio;
+                this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                
+                this.draw();
+            }
+
+            updateDisplays() {
+                this.totalMass = this.m1 + this.m2 + this.mFina;
+                
+                this.valM1.textContent = this.m1;
+                this.valM2.textContent = this.m2;
+                this.valMFina.textContent = this.mFina.toFixed(2);
+
+                const dialPart = Math.floor(this.mFina * 10) / 10;
+                const nonioMatch = Math.round((this.mFina * 100) % 10);
+
+                this.thM1.textContent = this.m1;
+                this.thM2.textContent = this.m2;
+                
+                if (this.thDialVal) this.thDialVal.textContent = dialPart.toFixed(1);
+                if (this.thNonioVal) this.thNonioVal.textContent = nonioMatch;
+                if (this.thMFinaBreakdown) this.thMFinaBreakdown.textContent = `${dialPart.toFixed(1)} g + ${(nonioMatch * 0.01).toFixed(2)} g`;
+                
+                this.thMFina.textContent = this.mFina.toFixed(2);
+                this.thCalcM1.textContent = this.m1;
+                this.thCalcM2.textContent = this.m2;
+                this.thCalcMFina.textContent = this.mFina.toFixed(2);
+                this.thTotal.textContent = this.totalMass.toFixed(2);
+                
+                this.simDisplay.textContent = this.totalMass.toFixed(2) + ' g';
+            }
+
+            draw() {
+                const width = this.container.clientWidth;
+                const height = this.container.clientHeight;
+                const ctx = this.ctx;
+                
+                ctx.clearRect(0, 0, width, height);
+
+                /* MARCA DE AGUA (AUTORÍA INCRUSTADA) */
+                ctx.save();
+                ctx.globalAlpha = 0.08; 
+                ctx.font = 'bold 24px Inter';
+                ctx.fillStyle = '#0f172a';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                for (let i = width/4; i <= width + 200; i += width/2) {
+                    ctx.fillText(`Desarrollado por: ${this.authorName}`, i, height / 3.5);
+                }
+                ctx.restore();
+
+                // Movido MÁS A LA DERECHA (al 32% en lugar de 25%)
+                const dialX = Math.max(width * 0.32, 260); 
+                const dialY = height * 0.52; 
+                const dialR = Math.min(height * 0.40, 132); 
+                
+                const visualStartX = dialX; 
+                
+                // --- COMPRESIÓN DE ESCALA APLICADA ---
+                // Separamos más el 0 del borde del dial (60px) para que se vea claro
+                const scaleStartX = dialX + dialR + 60; 
+                
+                // Limitamos el largo máximo de los números a 450 píxeles, para que se vean compactos.
+                const scaleLength = Math.min(450, width - scaleStartX - 40); 
+                
+                // El fierro (metal de fondo) sigue un poquito más allá de los números (40px)
+                const beamEndX = scaleStartX + scaleLength + 40; 
+                
+                const primerY = dialY - dialR * 0.25;
+                const segundoY = dialY - dialR * 0.75;
+
+                this.drawStand(ctx, dialX, dialY, dialR, height, width);
+                this.drawSegundoBrazo(ctx, visualStartX, scaleStartX, beamEndX, segundoY, scaleLength);
+                this.drawPrimerBrazo(ctx, visualStartX, scaleStartX, beamEndX, primerY, scaleLength);
+                this.drawEscalaFina(ctx, dialX, dialY, dialR);
+            }
+
+            drawStand(ctx, dialX, dialY, dialR, height, width) {
+                // Pilar se mueve junto con el dial
+                const pillarX = dialX + 100; 
+                
+                ctx.fillStyle = '#cbd5e1'; 
+                ctx.fillRect(pillarX - 15, dialY, 30, height - dialY);
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(pillarX - 15, dialY, 30, height - dialY);
+
+                ctx.fillStyle = '#64748b';
+                ctx.fillRect(50, height - 20, width - 100, 20);
+                
+                // El dibujo de la balancita extra fue removido previamente
+            }
+
+            drawSegundoBrazo(ctx, visualStartX, scaleStartX, endX, y, scaleLength) {
+                const h = 24;
+                
+                ctx.fillStyle = '#475569'; 
+                ctx.fillRect(visualStartX, y - h/2, endX - visualStartX, h);
+                
+                ctx.fillStyle = '#f8fafc';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.font = 'bold 11px Inter';
+
+                // Distancia entre marcas, basada en el largo comprimido (scaleLength)
+                const stepPx = scaleLength / 10;
+                
+                for (let i = 0; i <= 10; i++) {
+                    const tx = scaleStartX + i * stepPx;
+                    const val = i * 10;
+                    
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(tx - 1.5, y - h/2, 3, 6);
+                    
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.fillText(val, tx, y - h/2 + 8);
+                }
+
+                const riderX = scaleStartX + (this.m2 / 10) * stepPx;
+                this.drawRider(ctx, riderX, y - h/2, 14, '#eab308'); 
+            }
+
+            drawPrimerBrazo(ctx, visualStartX, scaleStartX, endX, y, scaleLength) {
+                const h = 28;
+                
+                ctx.fillStyle = '#1e293b'; 
+                ctx.fillRect(visualStartX, y - h/2, endX - visualStartX, h);
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.font = 'bold 12px Inter';
+
+                // Distancia entre marcas, basada en el largo comprimido (scaleLength)
+                const stepPx = scaleLength / 5;
+                
+                for (let i = 0; i <= 5; i++) {
+                    const tx = scaleStartX + i * stepPx;
+                    const val = i * 100;
+                    
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillRect(tx - 2, y - h/2, 4, 8);
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(val, tx, y - h/2 + 10);
+                }
+
+                const riderX = scaleStartX + (this.m1 / 100) * stepPx;
+                this.drawRider(ctx, riderX, y - h/2, 20, '#eab308');
+            }
+
+            drawRider(ctx, x, topY, size, color) {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.moveTo(x - size/2, topY - size/2);
+                ctx.lineTo(x + size/2, topY - size/2);
+                ctx.lineTo(x + size/2, topY + size/3);
+                ctx.lineTo(x, topY + size);
+                ctx.lineTo(x - size/2, topY + size/3);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.strokeStyle = '#713f12';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+
+            drawEscalaFina(ctx, cx, cy, R) {
+                ctx.fillStyle = '#0f172a'; 
+                ctx.beginPath();
+                ctx.arc(cx, cy, R + 65, Math.PI, 0); 
+                ctx.lineTo(cx + R + 25, cy + R + 25);
+                ctx.lineTo(cx - R - 25, cy + R + 25);
+                ctx.closePath();
+                ctx.fill();
+
+                const vernierInner = R + 2;
+                const dialRotation = this.mFina * 36 * (Math.PI / 180);
+
+                ctx.save();
+                ctx.translate(cx, cy);
+
+                ctx.save();
+                ctx.rotate(dialRotation);
+
+                ctx.fillStyle = '#1e293b';
+                ctx.beginPath();
+                ctx.arc(0, 0, R, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                for (let i = 0; i <= 100; i++) { 
+                    const angle = -Math.PI / 2 - i * 3.6 * (Math.PI / 180);
+                    const cosA = Math.cos(angle);
+                    const sinA = Math.sin(angle);
+                    
+                    let tickLen = 8;
+                    let isMajor = false;
+                    
+                    if (i % 10 === 0) {
+                        tickLen = 18; 
+                        isMajor = true;
+                    } else if (i % 5 === 0) {
+                        tickLen = 12; 
+                    }
+
+                    ctx.lineWidth = isMajor ? 2.5 : 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo((R - tickLen) * cosA, (R - tickLen) * sinA);
+                    ctx.lineTo(R * cosA, R * sinA);
+                    ctx.stroke();
+
+                    if (isMajor && i < 100) {
+                        ctx.font = 'bold 26px Inter'; 
+                        ctx.fillText(i / 10, (R - 38) * cosA, (R - 38) * sinA); 
+                    }
+                }
+                
+                ctx.fillStyle = '#cbd5e1'; 
+                ctx.beginPath();
+                ctx.arc(0, 0, R * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#94a3b8';
+                ctx.stroke();
+                
+                ctx.restore(); 
+
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                
+                for (let v = 0; v <= 10; v++) { 
+                    const angle = -Math.PI / 2 - v * 3.24 * (Math.PI / 180);
+                    const cosA = Math.cos(angle);
+                    const sinA = Math.sin(angle);
+                    
+                    let tickLen = 10;
+                    let text = '';
+                    
+                    if (v === 0) { tickLen = 20; text = '0'; } 
+                    else if (v === 5) { tickLen = 15; text = '.05'; }
+                    else if (v === 10) { tickLen = 20; text = '.10'; }
+
+                    // Nonio blanco
+                    ctx.strokeStyle = '#ffffff'; 
+                    ctx.lineWidth = (v === 0) ? 3 : 2;
+                    ctx.beginPath();
+                    ctx.moveTo(vernierInner * cosA, vernierInner * sinA);
+                    ctx.lineTo((vernierInner + tickLen) * cosA, (vernierInner + tickLen) * sinA);
+                    ctx.stroke();
+
+                    if (text !== '') {
+                        ctx.fillStyle = '#ffffff'; 
+                        ctx.font = 'bold 18px Inter'; 
+                        ctx.fillText(text, (vernierInner + tickLen + 24) * cosA, (vernierInner + tickLen + 24) * sinA + 6); 
+                    }
+                }
+
+                if (this.mode !== 'practica') {
+                    const decimalPart = Math.round((this.mFina * 100) % 10);
+                    const matchIndex = decimalPart; 
+                    
+                    const matchAngle = -Math.PI / 2 - matchIndex * 3.24 * (Math.PI / 180);
+                    const cosA = Math.cos(matchAngle);
+                    const sinA = Math.sin(matchAngle);
+
+                    ctx.strokeStyle = '#ea580c'; 
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.moveTo((R - 18) * cosA, (R - 18) * sinA);
+                    ctx.lineTo((vernierInner + 28) * cosA, (vernierInner + 28) * sinA);
+                    ctx.stroke();
+                }
+
+                ctx.restore(); 
+            }
+
+            generatePractice() {
+                this.m1 = Math.floor(Math.random() * 6) * 100; 
+                this.m2 = Math.floor(Math.random() * 11) * 10; 
+                
+                const finaInt = Math.floor(Math.random() * 1000); 
+                this.mFina = finaInt / 100;
+                
+                if (this.m1 === 0 && this.m2 === 0 && this.mFina === 0) {
+                    this.mFina = 2.55;
+                }
+                
+                this.totalMass = this.m1 + this.m2 + this.mFina;
+                this.practiceTarget = this.totalMass;
+                
+                this.sliderM1.value = this.m1;
+                this.sliderM2.value = this.m2;
+                this.sliderMFina.value = this.mFina;
+                
+                this.practiceInput.value = '';
+                this.practiceInput.classList.remove('border-teal-500', 'border-red-500');
+                this.practiceFeedback.classList.add('hidden');
+                
+                this.draw();
+            }
+
+            checkPractice() {
+                const userVal = parseFloat(this.practiceInput.value);
+                
+                if (isNaN(userVal)) {
+                    this.showFeedback('Ingresa un valor numérico válido.', 'error');
+                    return;
+                }
+
+                if (Math.abs(userVal - this.practiceTarget) < 0.005) {
+                    this.showFeedback('¡Correcto! Has registrado la masa perfectamente.', 'success');
+                } else {
+                    this.showFeedback(`Incorrecto. Recuerda sumar: Brazo 100g + Brazo 10g + Dial + Nonio.`, 'error');
+                }
+            }
+
+            showFeedback(msg, type) {
+                this.practiceFeedback.textContent = msg;
+                this.practiceFeedback.classList.remove('hidden', 'bg-teal-100', 'text-teal-800', 'bg-red-100', 'text-red-800');
+                this.practiceInput.classList.remove('border-teal-500', 'border-red-500');
+                
+                if (type === 'success') {
+                    this.practiceFeedback.classList.add('bg-teal-100', 'text-teal-800');
+                    this.practiceInput.classList.add('border-teal-500');
+                } else {
+                    this.practiceFeedback.classList.add('bg-red-100', 'text-red-800');
+                    this.practiceInput.classList.add('border-red-500');
+                }
+            }
+        }
+
+        window.onload = () => {
+            new BalanceApp();
+        };
+    </script>
+</body>
+</html>
