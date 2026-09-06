@@ -103,7 +103,7 @@
             <button class="tab-btn px-6 py-2 rounded-lg text-slate-600 hover:bg-slate-200" data-target="practica">⚙️ Modo Práctica</button>
         </nav>
 
-        <!-- Tarjeta principal en tono slate-50 -->
+        <!-- Tarjeta principal en tono slate-50 (no blanco puro) -->
         <main class="bg-slate-50 rounded-2xl shadow-xl p-6 md:p-8 flex-grow border border-slate-200">
             
             <div class="mb-8">
@@ -385,27 +385,36 @@
                 }
                 ctx.restore();
 
-                // Movido más a la izquierda (25% del ancho) para alargar enormemente los brazos
-                const dialX = Math.max(width * 0.25, 210); 
-                const dialY = height * 0.52; // Centrado optimizado
+                // Movido MÁS A LA DERECHA (al 32% en lugar de 25%)
+                const dialX = Math.max(width * 0.32, 260); 
+                const dialY = height * 0.52; 
                 const dialR = Math.min(height * 0.40, 132); 
                 
-                const visualStartX = dialX; // El fierro empieza desde el centro
-                const scaleStartX = dialX + dialR + 30; // Los números empiezan fuera del dial
-                const beamEndX = Math.max(width - 20, scaleStartX + 200); // Llega casi al borde derecho
+                const visualStartX = dialX; 
+                
+                // --- COMPRESIÓN DE ESCALA APLICADA ---
+                // Separamos más el 0 del borde del dial (60px) para que se vea claro
+                const scaleStartX = dialX + dialR + 60; 
+                
+                // Limitamos el largo máximo de los números a 450 píxeles, para que se vean compactos.
+                const scaleLength = Math.min(450, width - scaleStartX - 40); 
+                
+                // El fierro (metal de fondo) sigue un poquito más allá de los números (40px)
+                const beamEndX = scaleStartX + scaleLength + 40; 
                 
                 const primerY = dialY - dialR * 0.25;
                 const segundoY = dialY - dialR * 0.75;
 
                 this.drawStand(ctx, dialX, dialY, dialR, height, width);
-                this.drawSegundoBrazo(ctx, visualStartX, scaleStartX, beamEndX, segundoY);
-                this.drawPrimerBrazo(ctx, visualStartX, scaleStartX, beamEndX, primerY);
+                this.drawSegundoBrazo(ctx, visualStartX, scaleStartX, beamEndX, segundoY, scaleLength);
+                this.drawPrimerBrazo(ctx, visualStartX, scaleStartX, beamEndX, primerY, scaleLength);
                 this.drawEscalaFina(ctx, dialX, dialY, dialR);
             }
 
             drawStand(ctx, dialX, dialY, dialR, height, width) {
-                const pillarX = dialX + 100; // Pilar ajustado a la nueva posición izquierda
-                // Colores Eye-Care para metal base
+                // Pilar se mueve junto con el dial
+                const pillarX = dialX + 100; 
+                
                 ctx.fillStyle = '#cbd5e1'; 
                 ctx.fillRect(pillarX - 15, dialY, 30, height - dialY);
                 ctx.strokeStyle = '#94a3b8';
@@ -414,9 +423,11 @@
 
                 ctx.fillStyle = '#64748b';
                 ctx.fillRect(50, height - 20, width - 100, 20);
+                
+                // El dibujo de la balancita extra fue removido previamente
             }
 
-            drawSegundoBrazo(ctx, visualStartX, scaleStartX, endX, y) {
+            drawSegundoBrazo(ctx, visualStartX, scaleStartX, endX, y, scaleLength) {
                 const h = 24;
                 
                 ctx.fillStyle = '#475569'; 
@@ -427,7 +438,7 @@
                 ctx.textBaseline = 'top';
                 ctx.font = 'bold 11px Inter';
 
-                const scaleLength = endX - scaleStartX;
+                // Distancia entre marcas, basada en el largo comprimido (scaleLength)
                 const stepPx = scaleLength / 10;
                 
                 for (let i = 0; i <= 10; i++) {
@@ -445,7 +456,7 @@
                 this.drawRider(ctx, riderX, y - h/2, 14, '#eab308'); 
             }
 
-            drawPrimerBrazo(ctx, visualStartX, scaleStartX, endX, y) {
+            drawPrimerBrazo(ctx, visualStartX, scaleStartX, endX, y, scaleLength) {
                 const h = 28;
                 
                 ctx.fillStyle = '#1e293b'; 
@@ -456,7 +467,7 @@
                 ctx.textBaseline = 'top';
                 ctx.font = 'bold 12px Inter';
 
-                const scaleLength = endX - scaleStartX;
+                // Distancia entre marcas, basada en el largo comprimido (scaleLength)
                 const stepPx = scaleLength / 5;
                 
                 for (let i = 0; i <= 5; i++) {
@@ -493,7 +504,6 @@
             drawEscalaFina(ctx, cx, cy, R) {
                 ctx.fillStyle = '#0f172a'; 
                 ctx.beginPath();
-                // Ajuste de cubierta protectora para el nuevo tamaño
                 ctx.arc(cx, cy, R + 65, Math.PI, 0); 
                 ctx.lineTo(cx + R + 25, cy + R + 25);
                 ctx.lineTo(cx - R - 25, cy + R + 25);
@@ -523,7 +533,6 @@
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
-                // Dibujo del Dial (Aumentado)
                 for (let i = 0; i <= 100; i++) { 
                     const angle = -Math.PI / 2 - i * 3.6 * (Math.PI / 180);
                     const cosA = Math.cos(angle);
@@ -533,10 +542,10 @@
                     let isMajor = false;
                     
                     if (i % 10 === 0) {
-                        tickLen = 18; // Aumentado
+                        tickLen = 18; 
                         isMajor = true;
                     } else if (i % 5 === 0) {
-                        tickLen = 12; // Aumentado
+                        tickLen = 12; 
                     }
 
                     ctx.lineWidth = isMajor ? 2.5 : 1.5;
@@ -545,9 +554,8 @@
                     ctx.lineTo(R * cosA, R * sinA);
                     ctx.stroke();
 
-                    // Fuente del Dial Aumentada
                     if (isMajor && i < 100) {
-                        ctx.font = 'bold 26px Inter'; // De 22px a 26px
+                        ctx.font = 'bold 26px Inter'; 
                         ctx.fillText(i / 10, (R - 38) * cosA, (R - 38) * sinA); 
                     }
                 }
@@ -561,7 +569,6 @@
                 
                 ctx.restore(); 
 
-                // Nonio Fijo (Aumentado)
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
                 
@@ -573,10 +580,11 @@
                     let tickLen = 10;
                     let text = '';
                     
-                    if (v === 0) { tickLen = 20; text = '0'; } // Aumentado
+                    if (v === 0) { tickLen = 20; text = '0'; } 
                     else if (v === 5) { tickLen = 15; text = '.05'; }
                     else if (v === 10) { tickLen = 20; text = '.10'; }
 
+                    // Nonio blanco
                     ctx.strokeStyle = '#ffffff'; 
                     ctx.lineWidth = (v === 0) ? 3 : 2;
                     ctx.beginPath();
@@ -586,13 +594,11 @@
 
                     if (text !== '') {
                         ctx.fillStyle = '#ffffff'; 
-                        // Fuente del Nonio Aumentada
-                        ctx.font = 'bold 18px Inter'; // De 16px a 18px
+                        ctx.font = 'bold 18px Inter'; 
                         ctx.fillText(text, (vernierInner + tickLen + 24) * cosA, (vernierInner + tickLen + 24) * sinA + 6); 
                     }
                 }
 
-                // Resalte Naranja Aumentado
                 if (this.mode !== 'practica') {
                     const decimalPart = Math.round((this.mFina * 100) % 10);
                     const matchIndex = decimalPart; 
